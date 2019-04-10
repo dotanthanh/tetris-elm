@@ -1,9 +1,15 @@
 import Browser
 import Html exposing (Html, button, div, text)
 import Html.Events exposing (onClick)
+import Random exposing (generate, int, pair)
+import Tuple exposing (first, second)
 
 main =
-  Browser.sandbox { init = init, update = update, view = view }
+  Browser.element { init = init, update = update, view = view, subscriptions = subscriptions }
+
+subscriptions : Piece -> Sub Msg
+subscriptions model =
+  Sub.none
 
 type alias PieceStatus =
     { up : List (Int, Int)
@@ -77,39 +83,70 @@ type Piece = Empty | Piece
 type Msg = Spawn (Int, Int) | Move (Int, Int) | Rotate RotateDirection
 
 init : () -> (Piece, Cmd Msg)
-init _ = Piece { direction = Up, name = I, vector = (0, 0)  }
-    -- LOL wtf is this syntax
-    -- state <- case name of
-    --     I -> iState.up
-    --     L -> lState.up
-    --     J -> jState.up
-    --     Z -> zState.up
-    --     S -> sState.up
-    --     O -> oState.up
-    --     T -> tState.up
-
--- rotate : Piece -> RotateDirection -> Piece
--- rotate Piece {  } d = 
-
+init _ =
+    let 
+        p = Empty
+        msg = generate Spawn ( pair (int 0 6) (int 0 4) )
+    in
+        (p, msg)
 
 -- UPDATE
 
--- update : Msg -> Model -> Model
--- update msg model =
---   case msg of
---     Increment ->
---       model + 1
+getName : Int -> Name
+getName n =
+    case n of
+        0 -> I
+        1 -> L
+        2 -> J
+        3 -> Z
+        4 -> S
+        5 -> O
+        _ -> T
 
---     Decrement ->
---       model - 1
+getDirection : Int -> Direction
+getDirection n =
+    case n of
+        0 -> Up
+        1 -> Down
+        2 -> Left
+        _ -> Right
 
+getPosition : Piece -> List (Int, Int)
+getPosition p =
+    case p of
+        Piece { direction, name, vector } ->
+            let
+                pieceState = case name of
+                    I -> iState
+                    L -> lState
+                    J -> jState
+                    Z -> zState
+                    S -> sState
+                    O -> oState
+                    _ -> tState
+                piecePos = case direction of
+                    Right -> pieceState.right
+                    Down -> pieceState.down
+                    Left -> pieceState.left
+                    _ -> pieceState.up
+            in
+                List.map (\pos -> (first pos + first vector, second pos + second vector)) piecePos
+        _ -> []
+
+update : Msg -> Piece -> (Piece, Cmd Msg)
+update msg p =
+    case msg of
+        Spawn (ptype, ppos) ->
+            ( Piece
+                { direction = getDirection ppos
+                , name = getName ptype
+                , vector = (0, 0) }
+            , Cmd.none )
+        _ -> (p, Cmd.none)
 
 -- VIEW
 
--- view : Model -> Html Msg
--- view model =
---   div []
---     [ button [ onClick Decrement ] [ text "-" ]
---     , div [] [ text (String.fromInt model) ]
---     , button [ onClick Increment ] [ text "+" ]
---     ]
+view : Piece -> Html Msg
+view p =
+  div []
+    [ div [] [ text ("kuku keke kaka") ] ]
