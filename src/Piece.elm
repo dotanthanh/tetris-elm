@@ -131,6 +131,14 @@ isOut p =
     in
         List.length gridsOut > 0
 
+shouldStop : Piece -> Bool
+shouldStop p =
+    let
+        gridsOut = List.filter (\pos -> first pos >= 19) (getPosition p)
+    in
+        List.length gridsOut > 0
+
+
 -- UPDATE
 
 rotate : RotateDirection -> Piece -> Piece
@@ -154,6 +162,10 @@ move m ({ vector, name, direction } as p) =
         case m of
             MoveLeft -> { name = name, direction = direction, vector = (first vector, second vector - 1) }
             _ -> { name = name, direction = direction, vector = (first vector, second vector + 1) }
+
+fall : Piece -> Piece
+fall { name, direction, vector } =
+    { name = name, direction = direction, vector = (first vector + 1, second vector) }
 
 -- VIEW
 
