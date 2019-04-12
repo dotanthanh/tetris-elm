@@ -2,6 +2,7 @@ import Browser
 import Html exposing (Html, button, div, text)
 import Html.Events exposing (onClick)
 
+import Piece exposing (..)
 
 main =
   Browser.sandbox { init = init, update = update, view = view }
