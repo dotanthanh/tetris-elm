@@ -20,24 +20,29 @@ main =
 -- Board
 
 type alias Board =
-    { board: List (List Int)
+    { board: List (List Bool)
     , piece: Maybe Piece }
+
+type alias PieceSeed =
+    { name: Int
+    , direction: Int
+    , color: Int }
 
 init : () -> (Board, Cmd Msg)
 init _ = (
-    { board = repeat 24 (repeat 10 0), piece = Nothing }
-    , Random.generate Spawn (Random.pair (Random.int 0 3) (Random.int 0 6)) 
+    { board = repeat 24 (repeat 10 False), piece = Nothing }
+    , Random.generate Spawn (Random.map3 PieceSeed (Random.int 0 3) (Random.int 0 6) (Random.int 0 6)) 
     )
 
 -- UPDATE
 
-type Msg = Clear | Spawn (Int, Int) | Moving
+type Msg = Clear | Spawn PieceSeed | Moving
 
 update : Msg -> Board -> (Board, Cmd Msg)
 update msg { board, piece } =
     case msg of
-        Clear -> ({ board = board, piece = Nothing }, Random.generate Spawn (Random.pair (Random.int 0 3) (Random.int 0 6)))
-        Spawn (a, b) -> ({ board = board, piece = spawn a b |> Just }, Cmd.none)
+        Clear -> ({ board = board, piece = Nothing }, Random.generate Spawn (Random.map3 PieceSeed (Random.int 0 3) (Random.int 0 6) (Random.int 0 6)))
+        Spawn { direction, name, color } -> ({ board = board, piece = spawn direction name color |> Just }, Cmd.none)
         _ -> case piece of
             Just p ->
                 if shouldStop p then update Clear ({ board = board, piece = piece })
@@ -58,14 +63,3 @@ view { board, piece } =
         (case piece of
             Just p -> [ div [] [ Piece.view p ] ]
             _ -> [])
-
--- update : Msg -> Piece -> (Piece, Cmd Msg)
--- update msg p =
---     case msg of
---         Spawn (ptype, ppos) ->
---             ( Piece
---                 { direction = getDirection ppos
---                 , name = getName ptype
---                 , vector = (0, 0) }
---             , Cmd.none )
---         _ -> (p, Cmd.none)

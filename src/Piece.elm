@@ -67,6 +67,8 @@ tState =
 
 -- MODEL
 
+type Color = Yellow | Red | Green | Purple | Orange | Blue | Grey
+
 type Name = I | O | T | S | Z | J | L
 
 type Direction = Up | Down | Left | Right
@@ -79,10 +81,15 @@ type RotateDirection = CW | CCW
 type alias Piece =
     { direction : Direction
     , name : Name
+    , color : Color
     , vector : (Int, Int) }
 
-spawn : Int -> Int -> Piece
-spawn a b = { direction = getDirection a, name = getName b, vector = (0, 0) }
+spawn : Int -> Int -> Int -> Piece
+spawn a b c =
+    { direction = getDirection a
+    , name = getName b
+    , color = getColor c
+    , vector = (0, 0) }
 
 -- HELPERS
 
@@ -96,6 +103,28 @@ getName n =
         4 -> S
         5 -> O
         _ -> T
+
+getColor : Int -> Color
+getColor n =
+    case n of
+        0 -> Yellow
+        1 -> Red
+        2 -> Green
+        3 -> Purple
+        4 -> Orange
+        5 -> Blue
+        _ -> Grey
+
+getColorCode : Color -> String
+getColorCode n =
+    case n of
+        Yellow -> "yellow"
+        Red -> "red"
+        Green -> "green"
+        Purple -> "purple"
+        Orange -> "orange"
+        Blue -> "blue"
+        _ -> "grey"
 
 getDirection : Int -> Direction
 getDirection n =
@@ -142,47 +171,48 @@ shouldStop p =
 -- UPDATE
 
 rotate : RotateDirection -> Piece -> Piece
-rotate d { direction, name, vector } =
+rotate d p =
     case d of
-        CW -> case direction of
-            Up -> { name = name, vector = vector, direction = Right }
-            Right -> { name = name, vector = vector, direction = Down }
-            Down -> { name = name, vector = vector, direction = Left }
-            _ ->  { name = name, vector = vector, direction = Up }
-        CCW -> case direction of
-            Up -> { name = name, vector = vector, direction = Left }
-            Left -> { name = name, vector = vector, direction = Down }
-            Down -> { name = name, vector = vector, direction = Right }
-            _ ->  { name = name, vector = vector, direction = Up }
+        CW -> case p.direction of
+            Up -> { p | direction = Right }
+            Right -> { p | direction = Down }
+            Down -> { p | direction = Left }
+            _ ->  { p | direction = Up }
+        CCW -> case p.direction of
+            Up -> { p | direction = Left }
+            Left -> { p | direction = Down }
+            Down -> { p | direction = Right }
+            _ ->  { p | direction = Up }
 
 move : MoveOption -> Piece -> Piece
-move m ({ vector, name, direction } as p) =
+move m ({ vector } as p) =
     if isOut p then p
     else
         case m of
-            MoveLeft -> { name = name, direction = direction, vector = (first vector, second vector - 1) }
-            _ -> { name = name, direction = direction, vector = (first vector, second vector + 1) }
+            MoveLeft -> { p | vector = (first vector, second vector - 1) }
+            _ -> { p | vector = (first vector, second vector + 1) }
 
 fall : Piece -> Piece
-fall { name, direction, vector } =
-    { name = name, direction = direction, vector = (first vector + 1, second vector) }
+fall p =
+    { p | vector = (first p.vector + 1, second p.vector) }
 
 -- VIEW
 
 size : Int
 size = 30
 
-getGridStyle : (Int, Int) -> String
-getGridStyle (y, x) =
+getGridStyle : Color -> (Int, Int) -> String
+getGridStyle c (y, x) =
     let
         top = "top: " ++ fromInt (size * y) ++ "px;"
         left = "left: " ++ fromInt (size * x) ++ "px;"
+        color = getColorCode c
     in
-        "box-sizing: border-box; background-color: yellow; border: 1px solid black;position: absolute; width: " ++ fromInt size ++ "px;" ++ "height: " ++ fromInt size ++ "px;" ++ left ++ top
+        "box-sizing: border-box; background-color:" ++ color ++ "; border: 1px solid black; position: absolute; width: " ++ fromInt size ++ "px;" ++ "height: " ++ fromInt size ++ "px;" ++ left ++ top
 
 getPieceStyle : Piece -> List String
 getPieceStyle p =
-    List.map getGridStyle (getPosition p)
+    List.map (getGridStyle p.color) (getPosition p)
 
 view : Piece -> Html msg
 view p =
