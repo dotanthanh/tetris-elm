@@ -67,16 +67,13 @@ tState =
 
 -- MODEL
 
-type Color = Yellow | Red | Green | Purple | Orange | Blue | Grey
+type Color = Yellow | Red | Green | Purple | Orange | Blue | Grey | Transparent
 
 type Name = I | O | T | S | Z | J | L
 
 type Direction = Up | Down | Left | Right
 
 type MoveOption = MoveLeft | MoveRight
-
--- clockwise | counter clockwise
-type RotateDirection = CW | CCW
 
 type alias Piece =
     { direction : Direction
@@ -113,7 +110,8 @@ getColor n =
         3 -> Purple
         4 -> Orange
         5 -> Blue
-        _ -> Grey
+        6 -> Grey
+        _ -> Transparent
 
 getColorCode : Color -> String
 getColorCode n =
@@ -124,7 +122,8 @@ getColorCode n =
         Purple -> "purple"
         Orange -> "orange"
         Blue -> "blue"
-        _ -> "grey"
+        Grey -> "grey"
+        _ -> "transparent"
 
 getDirection : Int -> Direction
 getDirection n =
@@ -170,27 +169,20 @@ shouldStop p =
 
 -- UPDATE
 
-rotate : RotateDirection -> Piece -> Piece
-rotate d p =
-    case d of
-        CW -> case p.direction of
-            Up -> { p | direction = Right }
-            Right -> { p | direction = Down }
-            Down -> { p | direction = Left }
-            _ ->  { p | direction = Up }
-        CCW -> case p.direction of
-            Up -> { p | direction = Left }
-            Left -> { p | direction = Down }
-            Down -> { p | direction = Right }
-            _ ->  { p | direction = Up }
+-- always rotate clockwise
+rotate : Piece -> Piece
+rotate p =
+    case p.direction of
+        Up -> { p | direction = Right }
+        Right -> { p | direction = Down }
+        Down -> { p | direction = Left }
+        _ ->  { p | direction = Up }
 
 move : MoveOption -> Piece -> Piece
 move m ({ vector } as p) =
-    if isOut p then p
-    else
-        case m of
-            MoveLeft -> { p | vector = (first vector, second vector - 1) }
-            _ -> { p | vector = (first vector, second vector + 1) }
+    case m of
+        MoveLeft -> { p | vector = (first vector, second vector - 1) }
+        _ -> { p | vector = (first vector, second vector + 1) }
 
 fall : Piece -> Piece
 fall p =
@@ -206,9 +198,13 @@ getGridStyle c (y, x) =
     let
         top = "top: " ++ fromInt (size * y) ++ "px;"
         left = "left: " ++ fromInt (size * x) ++ "px;"
-        color = getColorCode c
+        color = "background-color:" ++ getColorCode c ++ ";"
+        border = case c of
+            Transparent -> "border: 0;"
+            _ -> "border: 1px solid black;"
     in
-        "box-sizing: border-box; background-color:" ++ color ++ "; border: 1px solid black; position: absolute; width: " ++ fromInt size ++ "px;" ++ "height: " ++ fromInt size ++ "px;" ++ left ++ top
+        "box-sizing: border-box;" ++ color ++ border ++ "position: absolute; width: " ++ fromInt size ++ "px;" ++
+        "height: " ++ fromInt size ++ "px;" ++ left ++ top
 
 getPieceStyle : Piece -> List String
 getPieceStyle p =
@@ -216,5 +212,5 @@ getPieceStyle p =
 
 view : Piece -> Html msg
 view p =
-    div [attribute "style" "width: 100%; height: 100%; position: relative;"]
+    div [attribute "style" "width: 100%; height: 100%; position: absolute;"]
         (List.map (\style -> div [attribute "style" style] []) (getPieceStyle p))
