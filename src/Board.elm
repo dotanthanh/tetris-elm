@@ -42,36 +42,52 @@ init _ = (
 
 getGrid : (Int, Int) -> Board -> Color
 getGrid (y, x) b =
-    case b |> (head << take (y + 1) << (\n -> case head n of
-                                                Just m -> m
-                                                _ -> []) << take (x + 1)) of
-        Just c -> c
-        _ -> Transparent
+    let
+        f n = case head n of
+            Just m -> m
+            _ -> []
+    in
+        case b |> (head << drop x << f << drop y) of
+            Just c -> c
+            _ -> Transparent
 
 -- UPDATE
 
 type Control = ArrowUp | ArrowDown | ArrowLeft | ArrowRight | Other
 
 type Msg =
-    Clear
-    | Spawn PieceSeed
-    | Moving
+    Spawn PieceSeed
     | Move MoveOption
     | Rotate
+    | Augment
+    | Reduce
+    | CheckLose
+    | Moving
     | None
 
 update : Msg -> GameState -> (GameState, Cmd Msg)
-update msg { board, piece } =
+update msg ({ board, piece } as gs) =
     case piece of
         Just p -> case msg of
-            Clear -> ({ board = board, piece = Nothing }, Random.generate Spawn (Random.map3 PieceSeed (Random.int 0 3) (Random.int 0 6) (Random.int 0 6)))
-            Spawn { direction, name, color } -> ({ board = board, piece = spawn direction name color |> Just }, Cmd.none)
+            Spawn { direction, name, color } ->
+                ( { board = board, piece = spawn direction name color |> Just }
+                , Cmd.none )
             Move m -> ({ board = board, piece = move m p |> Just }, Cmd.none)
             Rotate -> ({ board = board, piece = rotate p |> Just }, Cmd.none)
-            _ -> (augment { board = board, piece = piece }, Cmd.none)
+            Augment -> update Reduce (augment gs)
+            CheckLose -> (gs, Cmd.none)
+            _ ->
+                if isOverlap { gs | piece = fall p |> Just } then update Augment gs
+                else ({ gs | piece = fall p |> Just } , Cmd.none)
+
         _ -> case msg of
+            Reduce ->
+                ( { board = reduce board, piece = Nothing }
+                , Cmd.none )
             Spawn { direction, name, color } -> ({ board = board, piece = spawn direction name color |> Just }, Cmd.none)
-            _ -> ({ board = board, piece = piece }, Cmd.none)
+            _ ->
+                ( { board = board, piece = piece }
+                , Random.generate Spawn (Random.map3 PieceSeed (Random.int 0 3) (Random.int 0 6) (Random.int 0 6)))
 
 isOverlap : GameState -> Bool
 isOverlap { board, piece } =
@@ -83,19 +99,35 @@ isOverlap { board, piece } =
                 List.any (\(y, x) -> getGrid (y, x) board /= Transparent || y > 19 || x < 0 || x > 9) piecePos
         _ -> False
 
-
 augment : GameState -> GameState
 augment g =
     case g.piece of
         Just p ->
-            if isOverlap { g | piece = Just (fall p) } then
-                let
-                    f y row = List.indexedMap (\x grid -> if length (List.filter (\n -> n == (y, x)) (getPosition p)) > 0 then p.color else grid ) row
-                in
-                    { board = List.indexedMap f g.board, piece = Nothing }
-            else { g | piece = Just (fall p) }
+            let
+                f y row =
+                    List.indexedMap (\x grid -> if List.any (\n -> n == (y, x)) (getPosition p) then p.color else grid ) row
+            in
+                { board = List.indexedMap f g.board, piece = Nothing }
         _ -> g
-        
+
+reduce : Board -> Board
+reduce b =
+    case length b of
+        0 -> b
+        _ ->
+            let
+                reverseB = reverse b
+                maybeR = head reverseB
+                f row = all (\c -> c /= Transparent) row
+            in
+                case maybeR of
+                    Just r ->
+                        if f r then
+                            reverseB |> (\n -> (repeat 10 Transparent) :: n) << reduce << reverse << drop 1
+                        else
+                            reverseB |> (\n -> n ++ [r]) << reduce << reverse << drop 1
+                    _ -> b
+                
 
 -- SUBSCRIPTIONS
 
@@ -138,7 +170,7 @@ getBoard g =
         b = g.board
         f y row = List.indexedMap (\x grid -> div [ attribute "style" (getGridStyle grid (y, x))] []) row
     in
-        (List.foldl (++) [] (List.indexedMap f b)) |> div [ attribute "style" "position: absolute; height: 100%; width: 100%; z-index: -10;" ]
+        (List.foldl (++) [] (List.indexedMap f b)) |> div [ attribute "style" "position: absolute; height: 100%; width: 100%; z-index: -100;" ]
 
 
 view : GameState -> Html Msg
