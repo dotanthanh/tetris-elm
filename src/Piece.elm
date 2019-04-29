@@ -196,21 +196,16 @@ size = 30
 getGridStyle : Color -> (Int, Int) -> String
 getGridStyle c (y, x) =
     let
-        top = "top: " ++ fromInt (size * y) ++ "px;"
-        left = "left: " ++ fromInt (size * x) ++ "px;"
-        color = "background-color:" ++ getColorCode c ++ ";"
-        border = case c of
-            Transparent -> "border: 0;"
-            _ -> "border: 1px solid black;"
+        color = if y < 0 || y > 19 || x < 0 || x > 9 then "transparent" else getColorCode c
+        colorStyle = "background-color:" ++ color ++ ";"
+        column = "grid-column:" ++ fromInt (x + 1) ++ ";"
+        row = "grid-row:" ++ fromInt (y + 1) ++ ";"
     in
-        "box-sizing: border-box;" ++ color ++ border ++ "position: absolute; width: " ++ fromInt size ++ "px;" ++
-        "height: " ++ fromInt size ++ "px;" ++ left ++ top
+        "box-sizing: border-box;" ++ colorStyle ++ row ++ column
 
 getPieceStyle : Piece -> List String
 getPieceStyle p =
     List.map (getGridStyle p.color) (getPosition p)
 
-view : Piece -> Html msg
-view p =
-    div [attribute "style" "width: 100%; height: 100%; position: absolute;"]
-        (List.map (\style -> div [attribute "style" style] []) (getPieceStyle p))
+view : Piece -> List (Html msg)
+view p = List.map (\style -> div [attribute "style" style] []) (getPieceStyle p)

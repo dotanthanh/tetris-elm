@@ -197,20 +197,20 @@ getBoard g =
         b = g.board
         f y row = List.indexedMap (\x grid -> div [ attribute "style" (getGridStyle grid (y, x))] []) row
     in
-        (List.foldl (++) [] (List.indexedMap f b)) |> div [ attribute "style" "position: absolute; height: 100%; width: 100%; z-index: -100;" ]
+        (List.foldl (++) [] (List.indexedMap f b)) |> div [ attribute "style" "z-index: -100; position: absolute; height: 100%; width: 100%; display: grid; grid-template-columns: repeat(10, 1fr); grid; grid-template-rows: repeat(20, 1fr); grid-gap: 1px;" ]
 
 
 view : GameState -> Html Msg
 view ({ board, piece, lost } as g) =
     let
         pieceView = case piece of
-                Just p -> div [] [ div [] [ Piece.view p ] ]
+                Just p -> div [ attribute "style" "position: absolute; height: 100%; width: 100%; display: grid; grid-template-columns: repeat(10, 1fr); grid; grid-template-rows: repeat(20, 1fr); grid-gap: 1px;" ] (Piece.view p)
                 _ -> div [] []
         status = if lost then "you lose, sucker" else ""
     in
         div [] [
             h4 [ attribute "style" "text-align: center;" ] [ text status ],
-            div [ attribute "style" "display: flex; border: 1px solid black; width: 300px; height: 600px; margin: auto;" ]
+            div [ attribute "style" "position: relative; display: flex; border: 1px solid black; width: 300px; height: 600px; margin: auto;" ]
                 [ pieceView, getBoard g ]
         ]
 
