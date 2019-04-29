@@ -27,7 +27,8 @@ type alias Board = List (List Color)
 
 type alias GameState =
     { board: Board
-    , piece: Maybe Piece }
+    , piece: Maybe Piece
+    , lost: Bool }
 
 type alias PieceSeed =
     { name: Int
@@ -36,7 +37,7 @@ type alias PieceSeed =
 
 init : () -> (GameState, Cmd Msg)
 init _ = (
-    { board = repeat 20 (repeat 10 Transparent), piece = Nothing }
+    { board = repeat 20 (repeat 10 Transparent), piece = Nothing, lost = False }
     , Random.generate Spawn (Random.map3 PieceSeed (Random.int 0 3) (Random.int 0 6) (Random.int 0 6)) 
     )
 
@@ -57,11 +58,11 @@ type Control = ArrowUp | ArrowDown | ArrowLeft | ArrowRight | Other
 
 type Msg =
     Spawn PieceSeed
+    | Lost
     | Move MoveOption
     | Rotate
     | Augment
     | Reduce
-    | CheckLose
     | Moving
     | None
 
@@ -70,23 +71,45 @@ update msg ({ board, piece } as gs) =
     case piece of
         Just p -> case msg of
             Spawn { direction, name, color } ->
-                ( { board = board, piece = spawn direction name color |> Just }
+                ({ gs | piece = spawn direction name color |> Just }
                 , Cmd.none )
-            Move m -> ({ board = board, piece = move m p |> Just }, Cmd.none)
-            Rotate -> ({ board = board, piece = rotate p |> Just }, Cmd.none)
-            Augment -> update Reduce (augment gs)
-            CheckLose -> (gs, Cmd.none)
+            Lost -> ({ gs | lost = True }, Cmd.none)
+            Move m ->
+                let
+                    movedPiece = move m p |> Just
+                    updatedBoard =
+                        if isOverlap { gs | piece = movedPiece } then gs
+                        else { gs | piece = movedPiece }
+                in
+                    (updatedBoard, Cmd.none)
+            Rotate ->
+                let
+                    pie = rotate p
+                    updatedBoard =
+                        if isOverlap { gs | piece = Just pie } == False then
+                            { gs | piece = Just pie }
+                        else if isOverlap { gs | piece = move MoveLeft pie |> Just } == False then
+                            { gs | piece = move MoveLeft pie |> Just }
+                        else if isOverlap { gs | piece = move MoveRight pie |> Just } == False then
+                            { gs | piece = move MoveRight pie |> Just }
+                        else gs
+                in
+                    (updatedBoard, Cmd.none)
+            Augment -> case augment gs of
+                Just g -> update Reduce g
+                _ -> update Lost { gs | piece = Nothing }  
             _ ->
                 if isOverlap { gs | piece = fall p |> Just } then update Augment gs
                 else ({ gs | piece = fall p |> Just } , Cmd.none)
 
         _ -> case msg of
+            Lost -> ({ gs | lost = True }, Cmd.none)
             Reduce ->
-                ( { board = reduce board, piece = Nothing }
+                ({ gs | board = reduce board, piece = Nothing }
                 , Cmd.none )
-            Spawn { direction, name, color } -> ({ board = board, piece = spawn direction name color |> Just }, Cmd.none)
+            Spawn { direction, name, color } -> ({ gs | piece = spawn direction name color |> Just }, Cmd.none)
             _ ->
-                ( { board = board, piece = piece }
+                ( gs
                 , Random.generate Spawn (Random.map3 PieceSeed (Random.int 0 3) (Random.int 0 6) (Random.int 0 6)))
 
 isOverlap : GameState -> Bool
@@ -99,16 +122,18 @@ isOverlap { board, piece } =
                 List.any (\(y, x) -> getGrid (y, x) board /= Transparent || y > 19 || x < 0 || x > 9) piecePos
         _ -> False
 
-augment : GameState -> GameState
+augment : GameState -> Maybe GameState
 augment g =
     case g.piece of
         Just p ->
             let
+                lost = List.any (\(y, _) -> y < 0) (getPosition p)
                 f y row =
                     List.indexedMap (\x grid -> if List.any (\n -> n == (y, x)) (getPosition p) then p.color else grid ) row
             in
-                { board = List.indexedMap f g.board, piece = Nothing }
-        _ -> g
+                if lost then Nothing
+                else Just { g | board = List.indexedMap f g.board, piece = Nothing }
+        _ -> Just g
 
 reduce : Board -> Board
 reduce b =
@@ -127,14 +152,16 @@ reduce b =
                         else
                             reverseB |> (\n -> n ++ [r]) << reduce << reverse << drop 1
                     _ -> b
-                
 
 -- SUBSCRIPTIONS
 
 subscriptions : GameState -> Sub Msg
-subscriptions board = batch
-    [ Time.every 500 (\_ -> Moving)
-    , onKeyPress keyDecoder ]
+subscriptions { lost } =
+    if lost then Sub.none
+    else
+        batch
+            [ Time.every 500 (\_ -> Moving)
+            , onKeyPress keyDecoder ]
 
 keyDecoder : Decode.Decoder Msg
 keyDecoder =
@@ -174,11 +201,16 @@ getBoard g =
 
 
 view : GameState -> Html Msg
-view ({ board, piece } as g) =
+view ({ board, piece, lost } as g) =
     let
         pieceView = case piece of
                 Just p -> div [] [ div [] [ Piece.view p ] ]
                 _ -> div [] []
+        status = if lost then "you lose, sucker" else ""
     in
-        div [ attribute "style" "display: flex; border: 1px solid black; width: 300px; height: 600px; margin: auto;" ]
-            [ pieceView, getBoard g ]
+        div [] [
+            h4 [ attribute "style" "text-align: center;" ] [ text status ],
+            div [ attribute "style" "display: flex; border: 1px solid black; width: 300px; height: 600px; margin: auto;" ]
+                [ pieceView, getBoard g ]
+        ]
+
